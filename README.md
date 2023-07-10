@@ -7,6 +7,6 @@ password: airflow
 # Step 3:
 run the "SQL Query" DAG
 
-## Notice: I use airflow-providers service in order to connect to MySQL database. So check the connection setting before run the DAG ^^! Sorry my bad for not using simpler connector like sqlalchemy.
-## Result: I got an error at "upload_to_db" task. It looks running without any Exception but there's still no data imported into SQL db (but db's size keeps increasing). Hope you guys help me find out ^^! And please check the "get_output" part, I didn't have data to test but I think it works! Anyway, NoSQL seems running well!
+## Notice: I use airflow-providers service in order to connect to MySQL database. So check the connection setting before running the DAG ^^! Sorry for my bad for not using a simpler connector like sqlalchemy.
+## Result: I got an error at the "upload_to_db" task. It looks running without any Exception but there's still no data imported into SQL db (but db's size keeps increasing). Hope you guys help me find out ^^! And please check the "get_output" part, I didn't have data to test but I think my queries work! Anyway, NoSQL seems running well!
 # Thank you!
