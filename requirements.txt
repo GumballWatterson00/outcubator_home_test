@@ -1,0 +1,7 @@
+apache-airflow==2.3.0
+requests 
+pandas 
+SQLAlchemy 
+pymongo==3.13.0
+apache-airflow-providers-mongo==2.3.0
+apache-airflow-providers-mysql==4.0.0
