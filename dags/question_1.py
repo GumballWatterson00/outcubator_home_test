@@ -79,8 +79,8 @@ def init_db(cursor):
     cursor.execute(query)
 
 def handle_csv_file(df):
-    #convert nan values to None (mysql error)
-    df = df.replace({np.nan: None})
+    #convert nan values to 0 (mysql error)
+    df = df.fillna(0)
     #convert float to int
     df['tripduration'] = df['tripduration'].apply(lambda x: int(float(re.sub(',', '', str(x)))))
     print('int success')
@@ -107,13 +107,16 @@ def handle_csv_file(df):
 def upload_to_sql(cursor, trips, stations):
     for i,row in stations.iterrows():
         #here %S means string values 
-        sql = 'INSERT INTO stations VALUES (%s,%s);'
+        sql = 'INSERT INTO stations (station_id, station_name) VALUES (%s,%s);'
         cursor.execute(sql, tuple(row))
     print("stations inserted")
     
     for i,row in trips.iterrows():
         #here %S means string values 
-        sql = 'INSERT INTO trips VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);'
+        sql = """
+                INSERT INTO trips (trip_id, start_time, end_time, bikeid, tripduration, from_station_id, to_station_id, usertype, gender, birthyear)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);
+            """
         cursor.execute(sql, tuple(row))
     print("trips inserted")
     
@@ -138,14 +141,16 @@ def get_output(cursor):
         sql = """
                 USE airflow;
                 
-                SELECT COUNT(DISTINCT(t.bike_id)) AS count, s.station_name
+                SELECT COUNT(DISTINCT(t.bikeid)) AS count, s.station_name
                 FROM trips t
                 JOIN stations s
                 ON t.from_station_id = s.station_id
                 GROUP BY s.station_id
-                ORDER BY COUNT(DISTINCT(t.bike_id)) DESC
+                ORDER BY COUNT(DISTINCT(t.bikeid)) DESC
                 LIMIT 10;
             """
+            
+        # sql = 'SELECT * FROM trips'
         cursor.execute(sql)
         a1 = cursor.fetchall()
         print('Top 10 from station \n')
@@ -154,12 +159,12 @@ def get_output(cursor):
         sql = """
                 USE airflow;
                 
-                SELECT COUNT(DISTINCT(t.bike_id)) AS count, s.station_name
+                SELECT COUNT(DISTINCT(t.bikeid)) AS count, s.station_name
                 FROM trips t
                 JOIN stations s
                 ON t.to_station_id = s.station_id
                 GROUP BY s.station_id
-                ORDER BY COUNT(DISTINCT(t.bike_id)) DESC
+                ORDER BY COUNT(DISTINCT(t.bikeid)) DESC
                 LIMIT 10;
             """
         cursor.execute(sql)
@@ -170,7 +175,7 @@ def get_output(cursor):
         sql = """
                 USE airflow;
                 
-                SELECT COUNT(bike_id) AS count
+                SELECT COUNT(bikeid) AS count
                 FROM trips 
                 WHERE DATE(start_time) = '2019-05-16';
             """
@@ -186,7 +191,7 @@ def get_output(cursor):
                 FROM trips t
                 JOIN stations s
                 ON t.from_station_id = s.station_id
-                WHERE DATE(t.start_date) <= '2019-05-16'
+                WHERE DATE(t.start_time) <= '2019-05-16'
                 GROUP BY s.station_id
                 LIMIT 10;
             """
@@ -257,28 +262,28 @@ with DAG('SQL_query', description='Hello World DAG',
           schedule_interval='@once',
           start_date=datetime(2017, 3, 20), catchup=False) as dag:
     
-    # create_db = PythonOperator(task_id='create_db',
-    #                            python_callable=init_db,
-    #                            op_kwargs={'cursor': cursor})
+    create_db = PythonOperator(task_id='create_db',
+                               python_callable=init_db,
+                               op_kwargs={'cursor': cursor})
     
-    # csv_to_db =  PythonOperator(task_id='upload_to_db', 
-    #                            python_callable=upload_to_db, 
-    #                            op_kwargs={'folder_path': downloaded_path,
-    #                                    'cursor': cursor})
+    csv_to_db =  PythonOperator(task_id='upload_to_db', 
+                               python_callable=upload_to_db, 
+                               op_kwargs={'folder_path': downloaded_path,
+                                       'cursor': cursor})
     queries = PythonOperator(task_id='get_output',
                              python_callable=get_output,
                              op_kwargs={'cursor': cursor})
     
-    # i = 0
-    # for url in download_urls:
-    #     zip_to_csv = PythonOperator(task_id=f'zip_to_csv_{i}', 
-    #                               python_callable=handle_zip_file,
-    #                               op_kwargs={'url':url})
-    #     i += 1
-    #     create_db >> zip_to_csv >> csv_to_db >> queries
+    i = 0
+    for url in download_urls:
+        zip_to_csv = PythonOperator(task_id=f'zip_to_csv_{i}', 
+                                  python_callable=handle_zip_file,
+                                  op_kwargs={'url':url})
+        i += 1
+        create_db >> zip_to_csv >> csv_to_db >> queries
         
-    # api_to_mongo = PythonOperator(task_id='api_to_mongo',
-    #                          python_callable=upload_to_mongo,
-    #                          op_kwargs={'url': api_url}
-    #                                     )
-    # api_to_mongo
+    api_to_mongo = PythonOperator(task_id='api_to_mongo',
+                             python_callable=upload_to_mongo,
+                             op_kwargs={'url': api_url}
+                                        )
+    api_to_mongo
